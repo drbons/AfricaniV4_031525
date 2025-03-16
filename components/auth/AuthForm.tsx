@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { STATES } from '@/lib/data';
@@ -25,7 +25,14 @@ export default function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { user, isAuthenticated, signIn, signUp, signInWithGoogle } = useAuth();
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      console.log('[AuthForm] User already authenticated, redirecting handled by useAuth hook', { userId: user.uid });
+    }
+  }, [user, isAuthenticated, router]);
 
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -64,9 +71,11 @@ export default function AuthForm() {
     setError(null);
 
     try {
+      console.log('[AuthForm] Attempting authentication', { isSignUp, email: formData.email });
+      
       if (isSignUp) {
         // Sign up
-        await signUp(formData.email, formData.password, {
+        const newUser = await signUp(formData.email, formData.password, {
           fullName: formData.fullName,
           city: formData.city,
           state: formData.state,
@@ -77,13 +86,17 @@ export default function AuthForm() {
             hours: formData.businessHours
           } : undefined
         });
+        
+        console.log('[AuthForm] Sign up successful', { userId: newUser.uid });
+        // Redirect is now handled by the useAuth hook
       } else {
         // Sign in
-        await signIn(formData.email, formData.password);
+        const signedInUser = await signIn(formData.email, formData.password);
+        console.log('[AuthForm] Sign in successful', { userId: signedInUser.uid });
+        // Redirect is now handled by the useAuth hook
       }
-
-      router.push('/');
     } catch (err: any) {
+      console.error('[AuthForm] Authentication error:', err);
       setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
@@ -95,9 +108,12 @@ export default function AuthForm() {
     setError(null);
 
     try {
-      await signInWithGoogle();
-      router.push('/');
+      console.log('[AuthForm] Attempting Google sign in');
+      const googleUser = await signInWithGoogle();
+      console.log('[AuthForm] Google sign in successful', { userId: googleUser.uid });
+      // Redirect is now handled by the useAuth hook
     } catch (err: any) {
+      console.error('[AuthForm] Google sign in error:', err);
       setError(err.message || 'An error occurred with Google sign in');
     } finally {
       setLoading(false);
@@ -343,9 +359,9 @@ export default function AuthForm() {
                 <input
                   id="businessHours"
                   type="text"
+                  placeholder="e.g. Mon-Fri: 9am-5pm, Sat: 10am-3pm"
                   value={formData.businessHours}
                   onChange={(e) => setFormData(prev => ({ ...prev, businessHours: e.target.value }))}
-                  placeholder="e.g., Mon-Fri: 9AM-5PM"
                   className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   required
                 />

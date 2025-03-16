@@ -9,8 +9,18 @@ import Image from 'next/image';
 export default function AuthButton() {
   const { user, loading, signOut } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // Debug user state
+  useEffect(() => {
+    console.log('[AuthButton] User state:', user ? { 
+      uid: user.uid, 
+      email: user.email, 
+      displayName: user.displayName 
+    } : 'No user');
+  }, [user]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -27,23 +37,47 @@ export default function AuthButton() {
   }, []);
 
   const handleSignOut = async () => {
-    await signOut();
-    setShowDropdown(false);
+    if (isSigningOut) return; // Prevent multiple sign-out attempts
+    
+    console.log('[AuthButton] Signing out');
+    setIsSigningOut(true);
+    
+    try {
+      await signOut();
+      console.log('[AuthButton] Sign out successful');
+      setShowDropdown(false);
+      
+      // Use a hard redirect to clear all state and prevent flickering
+      window.location.href = '/auth';
+    } catch (error) {
+      console.error('[AuthButton] Error signing out:', error);
+      setIsSigningOut(false);
+    }
   };
 
   const handleProfileClick = () => {
+    console.log('[AuthButton] Navigating to profile page');
     router.push('/profile');
     setShowDropdown(false);
   };
+
+  // Show a loading state if we're in the process of signing out
+  if (isSigningOut) {
+    return <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse"></div>;
+  }
 
   if (loading) {
     return <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse"></div>;
   }
 
   if (!user) {
+    console.log('[AuthButton] No user, showing sign in button');
     return (
       <button
-        onClick={() => router.push('/auth')}
+        onClick={() => {
+          console.log('[AuthButton] Sign in button clicked, navigating to auth page');
+          router.push('/auth');
+        }}
         className="flex items-center text-white hover:text-green-400 transition-colors"
       >
         <LogIn className="h-5 w-5 mr-1" />
@@ -52,10 +86,14 @@ export default function AuthButton() {
     );
   }
 
+  console.log('[AuthButton] User authenticated, showing user menu');
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setShowDropdown(!showDropdown)}
+        onClick={() => {
+          console.log('[AuthButton] User menu clicked, toggling dropdown');
+          setShowDropdown(!showDropdown);
+        }}
         className="flex items-center text-white hover:text-green-400 transition-colors"
       >
         {user.photoURL ? (
@@ -95,10 +133,11 @@ export default function AuthButton() {
             </button>
             <button
               onClick={handleSignOut}
-              className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              disabled={isSigningOut}
+              className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
             >
               <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
+              {isSigningOut ? 'Signing Out...' : 'Sign Out'}
             </button>
           </div>
         </div>

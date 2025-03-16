@@ -1,18 +1,45 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Business } from '@/types/firebase';
 import Link from 'next/link';
+import { MOCK_BUSINESSES } from '@/lib/data';
 
 export default function PinnedBusinesses() {
   const [pinnedBusinesses, setPinnedBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [useFallbackData, setUseFallbackData] = useState(false);
+  const isMountedRef = useRef(true);
+  const fetchAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    // Set up cleanup function
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const fetchPinnedBusinesses = async () => {
+      // Skip if we've already attempted to fetch and are using fallback data
+      if (useFallbackData && fetchAttemptedRef.current) {
+        return;
+      }
+      
+      fetchAttemptedRef.current = true;
+      
+      if (useFallbackData) {
+        // Use mock data if we're in fallback mode
+        if (isMountedRef.current) {
+          setPinnedBusinesses(MOCK_BUSINESSES.filter(b => b.rating === 'platinum').slice(0, 3));
+          setLoading(false);
+        }
+        return;
+      }
+      
       try {
         const q = query(
           collection(db, 'businesses'),
@@ -31,16 +58,37 @@ export default function PinnedBusinesses() {
           } as Business);
         });
         
-        setPinnedBusinesses(businesses);
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          setPinnedBusinesses(businesses);
+          setError(null);
+        }
       } catch (err: any) {
-        setError(err.message);
+        console.error('Error fetching pinned businesses:', err);
+        
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          setError(err.message);
+          // Switch to fallback data if there's an error
+          setUseFallbackData(true);
+          setPinnedBusinesses(MOCK_BUSINESSES.filter(b => b.rating === 'platinum').slice(0, 3));
+        }
       } finally {
-        setLoading(false);
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
     
     fetchPinnedBusinesses();
-  }, []);
+  }, [useFallbackData]);
+
+  const handleTryAgain = () => {
+    setLoading(true);
+    setUseFallbackData(false);
+    fetchAttemptedRef.current = false;
+  };
 
   if (loading) {
     return (
@@ -59,18 +107,21 @@ export default function PinnedBusinesses() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <h3 className="font-bold text-lg mb-3">Pinned Businesses</h3>
-        <div className="text-red-500">Error loading businesses: {error}</div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white rounded-lg shadow-md p-4 mb-4">
       <h3 className="font-bold text-lg mb-3">Pinned Businesses</h3>
+      
+      {useFallbackData && (
+        <div className="bg-yellow-50 text-yellow-800 text-xs p-2 mb-3 rounded">
+          Using demo data. 
+          <button 
+            onClick={handleTryAgain}
+            className="ml-2 underline hover:no-underline"
+          >
+            Try again
+          </button>
+        </div>
+      )}
       
       <div className="space-y-3">
         {pinnedBusinesses.length > 0 ? (

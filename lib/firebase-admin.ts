@@ -5,11 +5,7 @@ import * as admin from 'firebase-admin';
 export function initAdmin() {
   if (getApps().length === 0) {
     try {
-      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-      
-      if (!projectId) {
-        throw new Error('NEXT_PUBLIC_FIREBASE_PROJECT_ID is not defined');
-      }
+      const projectId = "africaniv2"; // Hardcoded project ID
       
       // Check if we have a service account key
       if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {

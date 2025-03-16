@@ -94,3 +94,78 @@ export interface Notification {
     metadata?: any;
   };
 }
+
+export interface Listing {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  isFree: boolean;
+  condition: 'new' | 'like-new' | 'good' | 'fair' | 'poor';
+  category: string;
+  images?: string[];
+  location?: {
+    name: string;
+    coords?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  contact?: {
+    email?: string;
+    phone?: string;
+  };
+  sellerId: string;
+  sellerName?: string;
+  createdAt: any; // Firestore Timestamp
+  updatedAt: any; // Firestore Timestamp
+  status: 'active' | 'sold' | 'pending' | 'inactive';
+}
+
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  startDate: string; // ISO string
+  endDate: string; // ISO string
+  startTime: string | null;
+  endTime: string | null;
+  location: {
+    address: string;
+    city: string;
+    country: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+    virtualMeetingUrl?: string | null;
+  };
+  coverImage: string | null;
+  isFree: boolean;
+  price: string | number | null;
+  organizer: string;
+  organizerEmail: string | null;
+  organizerPhone: string | null;
+  organizerPhotoURL: string | null;
+  website: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  createdBy: string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  status: 'active' | 'cancelled' | 'completed' | 'draft';
+  attendees: string[]; // Array of user IDs
+  interested: string[]; // Array of user IDs
+  likes: string[]; // Array of user IDs
+}
+
+export interface EventComment {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  text: string;
+  imageUrl?: string;
+  createdAt: any; // Firestore Timestamp
+}

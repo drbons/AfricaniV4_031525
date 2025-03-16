@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { name: 'Home', icon: Home, href: '/' },
-  { name: 'For Sale & Free', icon: Tag, href: '/for-sale' },
+  { name: 'Marketplace', icon: ShoppingBag, href: '/marketplace' },
   { name: 'Chats', icon: MessageSquare, href: '/chats' },
   { name: 'Notifications', icon: Bell, href: '/notifications' },
   { name: 'Groups', icon: Users, href: '/groups' },
