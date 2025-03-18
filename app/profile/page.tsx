@@ -8,6 +8,8 @@ import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firest
 import { db } from '@/lib/firebase';
 import { User, Mail, MapPin, Phone, Calendar, Building, Shield, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
+import BusinessProfileManager from "@/components/profile/BusinessProfileManager";
 
 interface Profile {
   id: string;
@@ -70,6 +72,7 @@ export default function ProfilePage() {
           
           if (docSnap.exists()) {
             const profileData = { id: docSnap.id, ...docSnap.data() } as Profile;
+            console.log("Profile data loaded:", profileData); // Debug log
             setProfile(profileData);
             setFullName(profileData.fullName || user.displayName || '');
             setState(profileData.state || '');
@@ -77,6 +80,7 @@ export default function ProfilePage() {
             setPhone(profileData.phone || '');
             setBio(profileData.bio || '');
             setRole(profileData.role || 'customer');
+            console.log("Setting role from profile data:", profileData.role || 'customer'); // Debug log
             setShowBusinessFields(profileData.role === 'business');
             
             // Business fields
@@ -113,6 +117,7 @@ export default function ProfilePage() {
   
   const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value as 'customer' | 'business';
+    console.log("Role changed to:", newRole); // Debug log
     setRole(newRole);
     setShowBusinessFields(newRole === 'business');
   };
@@ -133,10 +138,8 @@ export default function ProfilePage() {
         return;
       }
 
-      const docRef = doc(db, 'profiles', user.uid);
-      const docSnap = await getDoc(docRef);
-      
-      const profileData: any = {
+      const profileRef = doc(db, 'profiles', user.uid);
+      const profileData = {
         userId: user.uid,
         fullName,
         state,
@@ -146,30 +149,41 @@ export default function ProfilePage() {
         role,
         updatedAt: serverTimestamp()
       };
-      
+
       // Add business fields if role is business
       if (role === 'business') {
-        profileData.businessName = businessName;
-        profileData.businessAddress = businessAddress;
-        profileData.businessHours = businessHours;
-        profileData.businessSocialMedia = {
-          facebook: facebookHandle,
-          twitter: twitterHandle,
-          instagram: instagramHandle
-        };
-        profileData.membershipTier = membershipTier;
+        Object.assign(profileData, {
+          businessName,
+          businessAddress,
+          businessHours,
+          businessSocialMedia: {
+            facebook: facebookHandle,
+            twitter: twitterHandle,
+            instagram: instagramHandle
+          },
+          membershipTier
+        });
       }
+      
+      const docSnap = await getDoc(profileRef);
       
       if (docSnap.exists()) {
         // Update existing profile
-        await updateDoc(docRef, profileData);
+        await updateDoc(profileRef, profileData);
       } else {
         // Create new profile
         profileData.createdAt = serverTimestamp();
-        await setDoc(docRef, profileData);
+        await setDoc(profileRef, profileData);
       }
       
+      // After successful update, display success message
       setSuccess(true);
+      
+      // Debug log for verifying the role was saved
+      console.log("Profile updated with role:", role);
+      
+      // If role was changed to business, make sure to display business fields
+      setShowBusinessFields(role === 'business');
     } catch (err: any) {
       setError(err.message || 'An error occurred');
     } finally {
@@ -514,29 +528,49 @@ export default function ProfilePage() {
               </div>
             )}
             
-            <div className="flex justify-between">
-              <button
-                type="button"
-                onClick={() => router.push('/')}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
+            <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={updating}
-                className="px-4 py-2 bg-[#00FF4C] hover:bg-green-400 text-black font-bold rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
+                className="bg-[#00FF4C] hover:bg-green-400 text-black font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
               >
-                {updating ? 'Updating...' : 'Update Profile'}
+                {updating ? 'Updating...' : 'Save Changes'}
               </button>
             </div>
           </form>
           
-          <div className="mt-8 pt-6 border-t">
-            <div className="flex items-center text-sm text-gray-500">
-              <AlertTriangle className="h-4 w-4 mr-1 text-yellow-500" />
-              <span>Need to change your password or delete your account? Visit the <a href="/settings" className="text-blue-500 hover:underline">Settings page</a>.</span>
+          {/* Business Profile Management Section */}
+          {role === 'business' && user && (
+            <div className="mt-12 border-t pt-6">
+              <h2 className="text-2xl font-bold mb-6 flex items-center">
+                <Building className="h-6 w-6 mr-2 text-green-500" />
+                Business Profiles
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Create and manage your business profiles that will appear in the business directory.
+              </p>
+              <BusinessProfileManager userId={user.uid} />
             </div>
+          )}
+          
+          {/* Debug element to show current role */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
+              <p><strong>Debug:</strong> Current role: {role}</p>
+              <p>Show business fields: {showBusinessFields ? 'Yes' : 'No'}</p>
+              <p>User authenticated: {user ? 'Yes' : 'No'}</p>
+            </div>
+          )}
+          
+          <div className="mt-8 flex flex-col space-y-2">
+            <h2 className="text-xl font-semibold">Need to make changes?</h2>
+            <p className="text-sm text-gray-500">
+              To change your password or delete your account, visit your{" "}
+              <Link href="/settings" className="text-[#00FF4C] hover:underline">
+                settings page
+              </Link>
+              .
+            </p>
           </div>
         </div>
       </div>
