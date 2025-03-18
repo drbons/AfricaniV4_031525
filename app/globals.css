@@ -78,9 +78,21 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
+/* Required for layout components */
+.font-inter {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Basic styles for layout structure */
+body {
+  min-height: 100vh;
+}
+
+/* Add loading indicator styles */
 @keyframes rotate {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
