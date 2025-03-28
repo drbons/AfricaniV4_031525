@@ -9,7 +9,6 @@ import { useAuth } from '@/hooks/useAuth';
 import MarketplaceHeader from '@/components/marketplace/MarketplaceHeader';
 import FilterSidebar from '@/components/marketplace/FilterSidebar';
 import ListingsFeed from '@/components/marketplace/ListingsFeed';
-import SeedMarketplace from '@/components/marketplace/SeedMarketplace';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 
 export default function MarketplacePage() {
@@ -96,9 +95,6 @@ export default function MarketplacePage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Sidebar */}
         <div className="md:col-span-1">
-          {/* Seed Marketplace Component */}
-          <SeedMarketplace />
-          
           <FilterSidebar 
             filters={filters} 
             onFilterChange={handleFilterChange} 

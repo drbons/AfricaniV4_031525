@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, limit, startAfter, DocumentData, Timestamp } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { collection, query, where, orderBy, getDocs, limit, startAfter, DocumentData, QueryDocumentSnapshot, Query, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Listing } from '@/types/firebase';
+import { Listing } from '@/types/marketplace';
 import ListingCard from './ListingCard';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -155,11 +155,11 @@ export default function ListingsFeed({ filters, userLocation }: ListingsFeedProp
 
   if (error) {
     return (
-      <div className="text-center py-10">
-        <p className="text-red-500 mb-2">{error}</p>
-        <Button onClick={handleRetry} variant="outline">
-          Try Again
-        </Button>
+      <div className="text-center py-8 px-4">
+        <div className="bg-slate-50 rounded-lg p-6 shadow-sm">
+          <h3 className="text-lg font-medium text-gray-700 mb-2">No listings available</h3>
+          <p className="text-gray-500">Try adjusting your filters or check back later for new listings.</p>
+        </div>
       </div>
     );
   }
@@ -169,9 +169,11 @@ export default function ListingsFeed({ filters, userLocation }: ListingsFeedProp
 
   if (filteredListings.length === 0) {
     return (
-      <div className="text-center py-10">
-        <p className="text-gray-500 mb-2">No listings found matching your criteria.</p>
-        <p className="text-gray-400">Try adjusting your filters or check back later.</p>
+      <div className="text-center py-8 px-4">
+        <div className="bg-slate-50 rounded-lg p-6 shadow-sm">
+          <h3 className="text-lg font-medium text-gray-700 mb-2">No listings found</h3>
+          <p className="text-gray-500">Try adjusting your filters or check back later for new listings.</p>
+        </div>
       </div>
     );
   }
