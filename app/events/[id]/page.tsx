@@ -96,7 +96,7 @@ export default function EventPage({ params }: EventPageProps) {
       ) : error ? (
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold text-red-600 mb-2">{error}</h2>
-          <p className="text-gray-600 mb-4">The event you're looking for might have been removed or is no longer available.</p>
+          <p className="text-gray-600 mb-4">The event you&apos;re looking for might have been removed or is no longer available.</p>
           <Link 
             href="/events" 
             className="text-blue-600 hover:underline"
@@ -107,7 +107,7 @@ export default function EventPage({ params }: EventPageProps) {
       ) : !event ? (
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold mb-2">Event Not Found</h2>
-          <p className="text-gray-600 mb-4">The event you're looking for might have been removed or is no longer available.</p>
+          <p className="text-gray-600 mb-4">The event you&apos;re looking for might have been removed or is no longer available.</p>
           <Link 
             href="/events" 
             className="text-blue-600 hover:underline"

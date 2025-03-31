@@ -15,7 +15,8 @@ import {
   ChevronUp,
   CheckCircle2,
   Globe2,
-  Lock
+  Lock,
+  X
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Post, Comment } from '@/types/firebase';
@@ -28,6 +29,24 @@ interface PostDetailsProps {
   onShare?: () => Promise<void>;
   onBookmark?: () => Promise<void>;
 }
+
+// Add a helper function for safe date formatting at the top of the component (after imports, before the component)
+const formatDateSafely = (dateValue: any) => {
+  try {
+    if (!dateValue) return 'Unknown date';
+    
+    // If it's a Firebase Timestamp
+    if (typeof dateValue === 'object' && dateValue.toDate) {
+      return formatDistanceToNow(dateValue.toDate(), { addSuffix: true });
+    }
+    
+    // If it's a standard date string or timestamp
+    return formatDistanceToNow(new Date(dateValue), { addSuffix: true });
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Unknown date';
+  }
+};
 
 export default function PostDetails({ 
   post, 
@@ -186,7 +205,7 @@ export default function PostDetails({
               ) : (
                 <div className="h-full w-full bg-gray-200 flex items-center justify-center">
                   <span className="text-gray-600 font-medium">
-                    {post.userName[0].toUpperCase()}
+                    {post.userName && post.userName.length > 0 ? post.userName[0].toUpperCase() : '?'}
                   </span>
                 </div>
               )}
@@ -199,8 +218,8 @@ export default function PostDetails({
                 )}
               </div>
               <div className="flex items-center text-sm text-gray-500">
-                <time dateTime={post.createdAt}>
-                  {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                <time dateTime={post.createdAt ? post.createdAt.toString() : ''}>
+                  {formatDateSafely(post.createdAt)}
                 </time>
                 <span className="mx-1">•</span>
                 {post.isPrivate ? (
@@ -419,8 +438,8 @@ export default function PostDetails({
                   <div className="mt-1 flex items-center space-x-3 text-sm text-gray-500">
                     <button className="hover:text-gray-700">Like</button>
                     <button className="hover:text-gray-700">Reply</button>
-                    <time dateTime={comment.createdAt}>
-                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                    <time dateTime={comment.createdAt ? comment.createdAt.toString() : ''}>
+                      {formatDateSafely(comment.createdAt)}
                     </time>
                   </div>
                   
@@ -472,8 +491,8 @@ export default function PostDetails({
                                 <div className="mt-1 flex items-center space-x-3 text-sm text-gray-500">
                                   <button className="hover:text-gray-700">Like</button>
                                   <button className="hover:text-gray-700">Reply</button>
-                                  <time dateTime={reply.createdAt}>
-                                    {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
+                                  <time dateTime={reply.createdAt ? reply.createdAt.toString() : ''}>
+                                    {formatDateSafely(reply.createdAt)}
                                   </time>
                                 </div>
                               </div>

@@ -19,12 +19,13 @@ import {
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { format } from 'date-fns';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EventDetailProps {
   event: Event;
@@ -32,6 +33,8 @@ interface EventDetailProps {
 }
 
 export default function EventDetail({ event, currentUser }: EventDetailProps) {
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [liked, setLiked] = useState(false);
   const [attending, setAttending] = useState(false);
   const [interested, setInterested] = useState(false);

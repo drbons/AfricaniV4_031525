@@ -47,7 +47,7 @@ type NotificationStatus = 'all' | 'unread' | 'read';
 type SortOrder = 'newest' | 'oldest';
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,39 +56,64 @@ export default function NotificationsPage() {
   const [selectedStatus, setSelectedStatus] = useState<NotificationStatus>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [isDeleting, setIsDeleting] = useState(false);
-
+  
   useEffect(() => {
-    if (!user) {
+    console.log('[Notifications Page] Auth state:', { user: !!user, authLoading });
+    
+    // Don't redirect during initial loading
+    if (authLoading) {
+      console.log('[Notifications Page] Auth still loading, waiting...');
+      return;
+    }
+
+    // Only redirect if we're sure the user is not authenticated
+    if (!user && !authLoading) {
+      console.log('[Notifications Page] User not authenticated, redirecting to auth page');
       router.push('/auth');
       return;
     }
 
-    // Subscribe to notifications
-    const notificationsRef = collection(db, 'notifications');
-    const q = query(
-      notificationsRef,
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
+    // If we have a user, fetch notifications
+    if (user) {
+      console.log('[Notifications Page] User authenticated, fetching notifications');
+      
+      try {
+        // Subscribe to notifications
+        const notificationsRef = collection(db, 'notifications');
+        const q = query(
+          notificationsRef,
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notificationsList: Notification[] = [];
-      snapshot.forEach((doc) => {
-        notificationsList.push({
-          id: doc.id,
-          ...doc.data()
-        } as Notification);
-      });
-      setNotifications(notificationsList);
-      setLoading(false);
-    }, (err) => {
-      console.error('Error fetching notifications:', err);
-      setError('Failed to load notifications');
-      setLoading(false);
-    });
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          console.log('[Notifications Page] Snapshot received with', snapshot.docs.length, 'notifications');
+          const notificationsList: Notification[] = [];
+          snapshot.forEach((doc) => {
+            notificationsList.push({
+              id: doc.id,
+              ...doc.data()
+            } as Notification);
+          });
+          setNotifications(notificationsList);
+          setLoading(false);
+        }, (err) => {
+          console.error('[Notifications Page] Error fetching notifications:', err);
+          setError('Failed to load notifications');
+          setLoading(false);
+        });
 
-    return () => unsubscribe();
-  }, [user, router]);
+        return () => {
+          console.log('[Notifications Page] Cleaning up notification listener');
+          unsubscribe();
+        };
+      } catch (err) {
+        console.error('[Notifications Page] Error setting up notifications query:', err);
+        setError('An error occurred while setting up notifications');
+        setLoading(false);
+      }
+    }
+  }, [user, authLoading, router]);
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -167,10 +192,25 @@ export default function NotificationsPage() {
       const dateB = new Date(b.createdAt.toDate()).getTime();
       return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
     });
+    
+  // Show loading while authentication is in progress
+  if (authLoading) {
+    return (
+      <div className="max-w-[1440px] mx-auto px-4 py-6">
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="flex justify-center items-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+            <span className="ml-2 text-gray-600">Checking authentication...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
+  // Return null only if we're sure the user is not authenticated
+  if (!user && !authLoading) return null;
+  
   const unreadCount = notifications.filter(n => !n.read).length;
-
-  if (!user) return null;
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 py-6">
@@ -252,7 +292,7 @@ export default function NotificationsPage() {
         ) : filteredNotifications.length === 0 ? (
           <div className="p-8 text-center">
             <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-lg">You're all caught up!</p>
+            <p className="text-gray-500 text-lg">You&apos;re all caught up!</p>
             <p className="text-gray-400 text-sm">No notifications to display.</p>
           </div>
         ) : (
@@ -336,4 +376,4 @@ export default function NotificationsPage() {
       </div>
     </div>
   );
-}
+} 

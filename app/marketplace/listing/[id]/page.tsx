@@ -96,7 +96,7 @@ export default function ListingPage({ params }: ListingPageProps) {
       ) : error ? (
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold text-red-600 mb-2">{error}</h2>
-          <p className="text-gray-600 mb-4">The listing you're looking for might have been removed or is no longer available.</p>
+          <p className="text-gray-600 mb-4">The listing you&apos;re looking for might have been removed or is no longer available.</p>
           <Link 
             href="/marketplace" 
             className="text-blue-600 hover:underline"
@@ -107,7 +107,7 @@ export default function ListingPage({ params }: ListingPageProps) {
       ) : !listing ? (
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold mb-2">Listing Not Found</h2>
-          <p className="text-gray-600 mb-4">The listing you're looking for might have been removed or is no longer available.</p>
+          <p className="text-gray-600 mb-4">The listing you&apos;re looking for might have been removed or is no longer available.</p>
           <Link 
             href="/marketplace" 
             className="text-blue-600 hover:underline"
