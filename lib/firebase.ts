@@ -19,7 +19,8 @@ import {
 import { 
   getStorage, 
   FirebaseStorage,
-  connectStorageEmulator
+  connectStorageEmulator,
+  ref
 } from 'firebase/storage';
 
 // Determine if we're in development mode
@@ -62,10 +63,12 @@ let googleProvider: GoogleAuthProvider;
 
 try {
   // Initialize Firebase app 
-  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  logFirebase('Firebase app initialized');
   
   // Initialize Auth
   auth = getAuth(app);
+  logFirebase('Firebase Auth initialized');
   
   // Initialize Firestore with performance settings
   if (typeof window !== 'undefined') {
@@ -75,7 +78,8 @@ try {
         tabManager: persistentMultipleTabManager()
       })
     });
-    
+    logFirebase('Firestore initialized with persistence');
+
     // Enable offline persistence with multi-tab support
     enableMultiTabIndexedDbPersistence(db)
       .then(() => logFirebase('Firestore multi-tab persistence enabled'))
@@ -91,13 +95,32 @@ try {
   } else {
     // On server-side, just initialize Firestore normally
     db = getFirestore(app);
+    logFirebase('Firestore initialized (server-side)');
   }
   
   // Initialize Storage
+  if (!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
+    logFirebase('Storage bucket not configured', {
+      error: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET environment variable is missing'
+    });
+  }
+  
   storage = getStorage(app);
+  
+  // Verify storage was initialized correctly
+  try {
+    const testRef = ref(storage, 'test');
+    logFirebase('Firebase Storage initialized and working', {
+      testRef: !!testRef,
+      storageBucket: storage.app.options.storageBucket
+    });
+  } catch (storageError) {
+    console.error('[Firebase] Storage initialization issue:', storageError);
+  }
   
   // Initialize Google Auth Provider
   googleProvider = new GoogleAuthProvider();
+  logFirebase('Google Auth Provider initialized');
   
   // Connect to emulators if in development and emulators are enabled
   if (isDev && useEmulators) {
@@ -112,6 +135,20 @@ try {
 } catch (error) {
   console.error('[Firebase] Error initializing:', error);
   
+  // Provide more specific error messaging
+  if (typeof window !== 'undefined') {
+    // Only log this in the browser
+    console.error('[Firebase] Check your environment variables and Firebase configuration');
+    console.error('[Firebase] Current config:', {
+      apiKeyExists: !!firebaseConfig.apiKey,
+      authDomainExists: !!firebaseConfig.authDomain,
+      projectIdExists: !!firebaseConfig.projectId,
+      storageBucketExists: !!firebaseConfig.storageBucket,
+      messagingSenderIdExists: !!firebaseConfig.messagingSenderId,
+      appIdExists: !!firebaseConfig.appId
+    });
+  }
+
   // Fallback to empty objects if Firebase fails to initialize
   // This prevents the app from crashing completely
   app = {} as FirebaseApp;

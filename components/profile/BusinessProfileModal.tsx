@@ -20,22 +20,23 @@ import {
 import { db, storage } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 
+// Use the same business categories as in the profile page
 const BUSINESS_CATEGORIES = [
-  'Restaurant',
-  'Retail',
-  'Services',
-  'Healthcare',
-  'Education',
-  'Technology',
-  'Construction',
-  'Manufacturing',
-  'Real Estate',
-  'Entertainment',
-  'Hospitality',
-  'Transportation',
-  'Agriculture',
-  'Financial Services',
-  'Other'
+  "Restaurants & Food Services",
+  "Retail",
+  "Health & Wellness",
+  "Home Services",
+  "Automotive",
+  "Professional Services",
+  "Beauty & Personal Care",
+  "Education & Childcare",
+  "Entertainment & Recreation",
+  "Pets & Veterinary",
+  "Travel & Hospitality",
+  "Construction & Trades",
+  "Events & Party Services", 
+  "Nonprofits & Community Services",
+  "Other"
 ];
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -46,6 +47,7 @@ const MAX_IMAGES = 5;
 const businessProfileSchema = z.object({
   name: z.string().min(1, 'Business name is required'),
   category: z.string().min(1, 'Business category is required'),
+  categoryCustom: z.string().optional(),
   address: z.string().min(1, 'Business address is required'),
   phone: z
     .string()
@@ -67,6 +69,7 @@ interface BusinessProfile {
   id: string;
   name: string;
   category: string;
+  categoryCustom?: string;
   address: string;
   phone: string;
   website?: string;
@@ -76,6 +79,7 @@ interface BusinessProfile {
     instagram?: string;
   };
   images?: string[];
+  ownerId: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -95,6 +99,7 @@ export default function BusinessProfileModal({
 }: BusinessProfileModalProps) {
   const [name, setName] = useState(profile?.name || '');
   const [category, setCategory] = useState(profile?.category || '');
+  const [categoryCustom, setCategoryCustom] = useState(profile?.categoryCustom || '');
   const [address, setAddress] = useState(profile?.address || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [website, setWebsite] = useState(profile?.website || '');
@@ -134,41 +139,65 @@ export default function BusinessProfileModal({
   }, [isOpen]);
 
   const validateForm = () => {
-    try {
-      // Create the data object to validate
-      const data = {
-        name,
-        category,
-        address,
-        phone,
-        website: website || '',
-        socialMedia: {
-          facebook: facebook || '',
-          twitter: twitter || '',
-          instagram: instagram || '',
-        },
-      };
-      
-      // Validate using zod schema
-      businessProfileSchema.parse(data);
-      
+    let isValid = true;
+    const newErrors: any = {};
+
+    if (!name) {
+      newErrors.name = 'Business name is required';
+      isValid = false;
+    }
+
+    if (!category) {
+      newErrors.category = 'Business category is required';
+      isValid = false;
+    }
+
+    if (category === 'Other' && !categoryCustom) {
+      newErrors.categoryCustom = 'Please specify your business category';
+      isValid = false;
+    }
+
+    if (!address) {
+      newErrors.address = 'Address is required';
+      isValid = false;
+    }
+
+    if (!phone) {
+      newErrors.phone = 'Business phone is required';
+      isValid = false;
+    }
+
+    if (!phone.match(/^[0-9\+\-\(\)\s]{10,15}$/)) {
+      newErrors.phone = 'Please enter a valid phone number';
+      isValid = false;
+    }
+
+    if (!website.match(/^(https?:\/\/)?[\w\-]+(\.[\w\-]+)+[\w\-]+(\/[\w\-]+)*$/)) {
+      newErrors.website = 'Please enter a valid URL';
+      isValid = false;
+    }
+
+    if (errors.images) {
+      newErrors.images = errors.images;
+      isValid = false;
+    }
+
+    if (errors.form) {
+      newErrors.form = errors.form;
+      isValid = false;
+    }
+
+    if (isValid) {
       // Clear any existing errors
       setErrors({});
       return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        // Convert Zod errors to a more usable format
-        const formattedErrors: Record<string, string> = {};
-        error.errors.forEach(err => {
-          // Extract field name from path
-          const field = err.path[err.path.length - 1];
-          formattedErrors[field as string] = err.message;
-        });
-        setErrors(formattedErrors);
-      } else {
-        console.error('Validation error:', error);
-        setErrors({ form: 'An unexpected error occurred during validation' });
+    } else {
+      // Convert new errors to a more usable format
+      const formattedErrors: Record<string, string> = {};
+      for (const field in newErrors) {
+        formattedErrors[field] = newErrors[field];
       }
+      setErrors(formattedErrors);
       return false;
     }
   };
@@ -259,6 +288,7 @@ export default function BusinessProfileModal({
       const profileData = {
         name,
         category,
+        categoryCustom: category === 'Other' ? categoryCustom : '',
         address,
         phone,
         website: website || null,
@@ -361,7 +391,7 @@ export default function BusinessProfileModal({
               {/* Business Category */}
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                  Business Category <span className="text-red-500">*</span>
+                  Business Category
                 </label>
                 <select
                   id="category"
@@ -379,6 +409,27 @@ export default function BusinessProfileModal({
                 </select>
                 {errors.category && (
                   <p className="mt-1 text-sm text-red-600">{errors.category}</p>
+                )}
+
+                {/* Custom category field when "Other" is selected */}
+                {category === 'Other' && (
+                  <div className="mt-3">
+                    <label htmlFor="categoryCustom" className="block text-sm font-medium text-gray-700 mb-1">
+                      Specify Your Business Category
+                    </label>
+                    <input
+                      id="categoryCustom"
+                      type="text"
+                      value={categoryCustom}
+                      onChange={(e) => setCategoryCustom(e.target.value)}
+                      className={`w-full px-3 py-2 border ${errors.categoryCustom ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500`}
+                      placeholder="Enter your business category"
+                      required={category === 'Other'}
+                    />
+                    {errors.categoryCustom && (
+                      <p className="mt-1 text-sm text-red-600">{errors.categoryCustom}</p>
+                    )}
+                  </div>
                 )}
               </div>
               

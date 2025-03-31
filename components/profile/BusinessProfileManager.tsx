@@ -20,6 +20,7 @@ interface BusinessProfile {
   id: string;
   name: string;
   category: string;
+  categoryCustom?: string;
   address: string;
   phone: string;
   website?: string;
@@ -128,7 +129,16 @@ export default function BusinessProfileManager({ userId }: BusinessProfileManage
       
       // Delete from category subcollection
       if (profile.category) {
-        await deleteDoc(doc(db, `categories/${profile.category}/businesses/${profile.id}`));
+        try {
+          // Use the appropriate category name for deletion
+          const categoryName = profile.category === 'Other' && profile.categoryCustom
+            ? 'Other'  // We store 'Other' profiles in the 'Other' category collection
+            : profile.category;
+            
+          await deleteDoc(doc(db, `categories/${categoryName}/businesses/${profile.id}`));
+        } catch (err) {
+          console.error('Error deleting from category:', err);
+        }
       }
       
       // Update the local state
@@ -207,7 +217,9 @@ export default function BusinessProfileManager({ userId }: BusinessProfileManage
                     <div className="flex justify-between items-start">
                       <div>
                         <span className="text-xs font-medium px-2 py-1 bg-gray-100 rounded-full text-gray-600 mb-2 inline-block">
-                          {profile.category}
+                          {profile.category === 'Other' && profile.categoryCustom 
+                            ? profile.categoryCustom 
+                            : profile.category}
                         </span>
                         <h3 className="font-semibold text-lg mb-1">{profile.name}</h3>
                         <p className="text-sm text-gray-500 line-clamp-2 mb-2">
