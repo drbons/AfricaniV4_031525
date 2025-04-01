@@ -33,3 +33,63 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AWS specific
+.aws/
+aws-config.json
+.env.aws
+.env.production
+
+# AWS deployment artifacts
+.amplify/
+amplify/
+build/
+dist/
+
+# AWS credentials and secrets
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# AWS logs and temporary files
+*.log
+*.tmp
+aws-logs/
+aws-temp/
+
+# Local development overrides
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
+.next/
+out/
+dist/
+build/
+
+# Cache
+.cache/
+.npm/
+.yarn/
+
+# System files
+.DS_Store
+Thumbs.db
