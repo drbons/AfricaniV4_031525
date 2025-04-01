@@ -1,209 +1,134 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { fetchBusinesses } from '@/lib/firebase-api';
-import { BusinessProfile, BusinessFilterOptions, PaginationData } from '@/lib/types';
-import { Building, AlertCircle } from 'lucide-react';
-import BusinessCard from '@/components/businesses/BusinessCard';
-import BusinessFilters from '@/components/businesses/BusinessFilters';
-import BusinessPagination from '@/components/businesses/BusinessPagination';
-import FeaturedBusinesses from '@/components/businesses/FeaturedBusinesses';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Business } from '@/types/firebase';
+import { seedBusinesses } from '@/lib/seedBusinesses';
+import BusinessCard from '@/components/directory/BusinessCard';
+import { Filter } from 'lucide-react';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 
-export default function BusinessDirectoryPage() {
-  const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  
-  const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
-  const [pagination, setPagination] = useState<PaginationData>({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    hasNextPage: false,
-    hasPrevPage: false
-  });
+export default function BusinessDirectory() {
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<BusinessFilterOptions>({});
-  
-  // Extract URL parameters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
   useEffect(() => {
-    const page = searchParams.get('page') ? parseInt(searchParams.get('page') as string, 10) : 1;
-    const category = searchParams.get('category') || '';
-    const state = searchParams.get('state') || '';
-    const city = searchParams.get('city') || '';
-    const searchTerm = searchParams.get('search') || '';
-    const sortBy = searchParams.get('sortBy') as 'rating' | 'name' | 'createdAt' || 'rating';
-    const sortDirection = searchParams.get('sortDirection') as 'asc' | 'desc' || 'desc';
-    
-    setFilters({
-      page,
-      category,
-      state,
-      city,
-      searchTerm,
-      sortBy,
-      sortDirection
-    });
-  }, [searchParams]);
-  
-  // Load businesses based on filters
-  useEffect(() => {
-    const loadBusinesses = async () => {
+    async function loadBusinesses() {
       try {
         setLoading(true);
-        setError(null);
         
-        const result = await fetchBusinesses(filters);
-        setBusinesses(result.businesses);
-        setPagination(result.pagination);
-      } catch (err: any) {
-        console.error('Error fetching businesses:', err);
-        setError(err.message || 'Failed to load businesses');
+        // First try to seed businesses if they don't exist
+        await seedBusinesses();
+
+        // Fetch all businesses
+        const businessesRef = collection(db, 'businesses');
+        const businessesQuery = query(businessesRef, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(businessesQuery);
+        
+        const businessesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Business[];
+
+        setBusinesses(businessesData);
+        
+        // Set featured businesses
+        const featured = businessesData.filter(business => business.featured);
+        setFeaturedBusinesses(featured);
+        
+        setError(null);
+      } catch (err) {
+        console.error('Error loading businesses:', err);
+        setError('Error loading businesses. Please try again later.');
       } finally {
         setLoading(false);
       }
-    };
-    
-    if (!authLoading) {
-      loadBusinesses();
     }
-  }, [filters, authLoading]);
-  
-  // Update URL with filters
-  const updateUrlWithFilters = (newFilters: BusinessFilterOptions) => {
-    const params = new URLSearchParams();
-    
-    if (newFilters.page && newFilters.page > 1) {
-      params.set('page', newFilters.page.toString());
-    }
-    
-    if (newFilters.category) {
-      params.set('category', newFilters.category);
-    }
-    
-    if (newFilters.state) {
-      params.set('state', newFilters.state);
-    }
-    
-    if (newFilters.city) {
-      params.set('city', newFilters.city);
-    }
-    
-    if (newFilters.searchTerm) {
-      params.set('search', newFilters.searchTerm);
-    }
-    
-    if (newFilters.sortBy && newFilters.sortBy !== 'rating') {
-      params.set('sortBy', newFilters.sortBy);
-    }
-    
-    if (newFilters.sortDirection && newFilters.sortDirection !== 'desc') {
-      params.set('sortDirection', newFilters.sortDirection);
-    }
-    
-    const queryString = params.toString();
-    const url = queryString ? `${pathname}?${queryString}` : pathname;
-    
-    router.push(url);
-  };
-  
-  // Handle filter changes
-  const handleFilterChange = (newFilters: BusinessFilterOptions) => {
-    const updatedFilters = { ...newFilters, page: 1 }; // Reset to first page on filter change
-    updateUrlWithFilters(updatedFilters);
-  };
-  
-  // Handle page changes
-  const handlePageChange = (page: number) => {
-    updateUrlWithFilters({ ...filters, page });
-  };
-  
-  // If not authenticated
-  if (!authLoading && !user) {
+
+    loadBusinesses();
+  }, []);
+
+  const filteredBusinesses = businesses.filter(business => 
+    business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    business.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    business.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12">
-        <div className="text-center py-12">
-          <h1 className="text-3xl font-bold mb-4">Business Directory</h1>
-          <p className="text-gray-600 mb-6">Please sign in to explore our business directory.</p>
-          <button
-            onClick={() => router.push('/auth/signin')}
-            className="bg-[#00FF4C] hover:bg-green-400 text-black font-bold py-2 px-4 rounded"
-          >
-            Sign In
-          </button>
-        </div>
+      <div className="flex justify-center items-center min-h-[400px]">
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
-  
+
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Business Directory</h1>
-      
-      {/* Featured Businesses */}
-      {filters.page === 1 && !filters.category && !filters.searchTerm && (
-        <FeaturedBusinesses />
-      )}
-      
-      {/* Filters */}
-      <BusinessFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
-      
-      {/* Results */}
-      {loading ? (
-        <div className="flex justify-center items-center py-16">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg p-6 my-8">
-          <div className="flex items-center mb-2">
-            <AlertCircle className="h-5 w-5 mr-2" />
-            <h3 className="font-medium">Error loading businesses</h3>
-          </div>
-          <p>{error}</p>
-        </div>
-      ) : businesses.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300 my-8">
-          <Building className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-          <h3 className="text-lg font-medium text-gray-900 mb-1">No businesses found</h3>
-          <p className="text-gray-500 mb-4">
-            Try adjusting your filters or search criteria.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Results Count */}
-          <div className="mb-6">
-            <p className="text-sm text-gray-600">
-              Showing {businesses.length} of {pagination.totalItems} businesses
-              {filters.category ? ` in ${filters.category}` : ''}
-              {filters.city ? ` in ${filters.city}` : ''}
-              {filters.state ? (filters.city ? `, ${filters.state}` : ` in ${filters.state}`) : ''}
-              {filters.searchTerm ? ` matching "${filters.searchTerm}"` : ''}
-            </p>
-          </div>
-          
-          {/* Business Grid */}
+
+      {/* Featured Businesses Section */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-semibold mb-6 flex items-center">
+          <span className="mr-2">⭐</span> Featured Businesses
+        </h2>
+        {error ? (
+          <div className="text-red-500 p-4 rounded-lg bg-red-50">{error}</div>
+        ) : featuredBusinesses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {businesses.map((business) => (
+            {featuredBusinesses.map(business => (
               <BusinessCard key={business.id} business={business} />
             ))}
           </div>
-          
-          {/* Pagination */}
-          <BusinessPagination
-            pagination={pagination}
-            onPageChange={handlePageChange}
+        ) : (
+          <p className="text-gray-500">No featured businesses available.</p>
+        )}
+      </div>
+
+      {/* Search and Filters */}
+      <div className="mb-8">
+        <div className="flex gap-4 mb-4">
+          <input
+            type="text"
+            placeholder="Search businesses by name"
+            className="flex-1 p-2 border rounded-lg"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </>
-      )}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Show Filters
+          </button>
+        </div>
+      </div>
+
+      {/* All Businesses */}
+      <div>
+        {filteredBusinesses.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredBusinesses.map(business => (
+              <BusinessCard key={business.id} business={business} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <p className="text-gray-500">No businesses found</p>
+            <p className="text-gray-400 text-sm">Try adjusting your filters or search criteria.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

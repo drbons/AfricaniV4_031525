@@ -1,204 +1,127 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Business } from '@/types/firebase';
+import { seedBusinesses } from '@/lib/seedBusinesses';
+import BusinessCard from '@/components/directory/BusinessCard';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
-
-interface Category {
-  id: string;
-  name: string;
-  description: string;
-  businessCount: number;
-}
+import Link from 'next/link';
 
 export default function CategoriesPage() {
-  const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [businessesByCategory, setBusinessesByCategory] = useState<Record<string, Business[]>>({});
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    async function loadBusinesses() {
       try {
         setLoading(true);
-        setError(null);
         
-        const categoriesRef = collection(db, 'categories');
-        const q = query(categoriesRef, orderBy('name', 'asc'));
-        const querySnapshot = await getDocs(q);
+        // First try to seed businesses if they don't exist
+        await seedBusinesses();
+
+        // Fetch all businesses
+        const businessesRef = collection(db, 'businesses');
+        const businessesQuery = query(businessesRef, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(businessesQuery);
         
-        const fetchedCategories = querySnapshot.docs.map(doc => ({
+        const businessesData = snapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data(),
-        } as Category));
-        
-        // If we have categories, also fetch business counts
-        if (fetchedCategories.length > 0) {
-          try {
-            // Get all business profiles to count by category
-            const profilesRef = collection(db, 'profiles');
-            const profilesQuery = query(profilesRef, where('role', '==', 'business'));
-            const profilesSnapshot = await getDocs(profilesQuery);
-            
-            // Create a counter for each category
-            const categoryCounts = {};
-            
-            // Count businesses in each category
-            profilesSnapshot.forEach(doc => {
-              const businessData = doc.data();
-              if (businessData.businessCategory) {
-                const category = businessData.businessCategory;
-                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-                
-                // Also count custom categories under "Other"
-                if (category === 'Other' && businessData.businessCategoryCustom) {
-                  categoryCounts['Other'] = (categoryCounts['Other'] || 0) + 1;
-                }
-              }
-            });
-            
-            // Get all businesses from the businesses collection for more accurate counts
-            const businessesRef = collection(db, 'businesses');
-            const businessesSnapshot = await getDocs(businessesRef);
-            
-            // Count businesses in each category
-            businessesSnapshot.forEach(doc => {
-              const businessData = doc.data();
-              if (businessData.category) {
-                const category = businessData.category;
-                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-              }
-            });
-            
-            // Update the business counts in the fetched categories
-            const updatedCategories = fetchedCategories.map(category => ({
-              ...category,
-              businessCount: categoryCounts[category.name] || 0
-            }));
-            
-            setCategories(updatedCategories);
-          } catch (err) {
-            console.error('Error counting businesses by category:', err);
-            // Still set the categories even if the count fails
-            setCategories(fetchedCategories);
+          ...doc.data()
+        })) as Business[];
+
+        // Group businesses by category
+        const grouped = businessesData.reduce((acc, business) => {
+          const category = business.category;
+          if (!acc[category]) {
+            acc[category] = [];
           }
-        } else {
-          setCategories(fetchedCategories);
-        }
+          acc[category].push(business);
+          return acc;
+        }, {} as Record<string, Business[]>);
+
+        setBusinessesByCategory(grouped);
+        setError(null);
       } catch (err) {
-        console.error('Error fetching categories:', err);
-        setError('Failed to load categories. Please try again later.');
+        console.error('Error loading businesses:', err);
+        setError('Error loading businesses. Please try again later.');
       } finally {
         setLoading(false);
       }
-    };
-
-    if (!authLoading) {
-      fetchCategories();
     }
-  }, [authLoading]);
 
-  const filteredCategories = categories.filter(category => 
-    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    category.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    loadBusinesses();
+  }, []);
 
-  if (authLoading) {
+  // Filter categories and businesses based on search term
+  const filteredCategories = Object.entries(businessesByCategory)
+    .filter(([category, businesses]) => {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      return category.toLowerCase().includes(lowerSearchTerm) ||
+        businesses.some(business => 
+          business.name.toLowerCase().includes(lowerSearchTerm) ||
+          business.description.toLowerCase().includes(lowerSearchTerm)
+        );
+    });
+
+  if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[60vh]">
+      <div className="flex justify-center items-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
-        <h1 className="text-2xl font-bold mb-4">Business Categories</h1>
-        <p className="text-gray-600 mb-6">Please sign in to explore business categories.</p>
-        <Button onClick={() => router.push('/auth/signin')}>Sign In</Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Business Categories</h1>
-          <p className="text-gray-600">Explore our comprehensive business categories</p>
-        </div>
-        
-        <div className="mt-4 md:mt-0">
-          <Button 
-            onClick={() => router.push('/directory')}
-            className="bg-[#00FF4C] hover:bg-green-400 text-black"
-          >
-            View Full Business Directory
-          </Button>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Business Categories</h1>
+        <Link 
+          href="/directory"
+          className="text-blue-600 hover:text-blue-800 font-medium"
+        >
+          View All Businesses
+        </Link>
       </div>
 
-      <div className="mb-6">
-        <Input
+      {/* Search */}
+      <div className="mb-8">
+        <input
           type="text"
-          placeholder="Search categories..."
-          className="max-w-md"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search categories or businesses..."
+          className="w-full p-2 border rounded-lg"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center min-h-[40vh]">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : error ? (
-        <div className="text-center py-8 px-4">
-          <div className="bg-slate-50 rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-medium text-gray-700 mb-2">Error Loading Categories</h3>
-            <p className="text-gray-500">{error}</p>
-          </div>
-        </div>
-      ) : filteredCategories.length === 0 ? (
-        <div className="text-center py-8 px-4">
-          <div className="bg-slate-50 rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-medium text-gray-700 mb-2">No Categories Found</h3>
-            <p className="text-gray-500">Try a different search term or check back later.</p>
-          </div>
+      {error ? (
+        <div className="text-red-500 p-4 rounded-lg bg-red-50">{error}</div>
+      ) : filteredCategories.length > 0 ? (
+        <div className="space-y-12">
+          {filteredCategories.map(([category, businesses]) => (
+            <div key={category}>
+              <h2 className="text-2xl font-semibold mb-6">{category}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {businesses.map(business => (
+                  <BusinessCard key={business.id} business={business} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCategories.map((category) => (
-            <Card key={category.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <CardTitle>{category.name}</CardTitle>
-                <CardDescription>{category.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">
-                  <span className="font-medium">{category.businessCount || 0}</span> businesses in this category
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => router.push(`/directory?category=${encodeURIComponent(category.name)}`)}
-                >
-                  View Businesses
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+        <div className="text-center py-12">
+          <div className="text-gray-400 mb-4">
+            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <p className="text-gray-500">No categories or businesses found</p>
+          <p className="text-gray-400 text-sm">Try adjusting your search criteria.</p>
         </div>
       )}
     </div>
