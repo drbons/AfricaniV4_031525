@@ -27,11 +27,11 @@ export default function CreateGroupModal({
   const [error, setError] = useState<string | null>(null);
 
   const filteredUsers = searchQuery
-    ? availableUsers.filter(user => 
+    ? (availableUsers || []).filter(user =>
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
         user.id !== currentUserId
       )
-    : availableUsers.filter(user => user.id !== currentUserId);
+    : (availableUsers || []).filter(user => user.id !== currentUserId);
 
   const handleAddRemoveUser = (userId: string) => {
     setSelectedUsers(prev => 
@@ -119,7 +119,7 @@ export default function CreateGroupModal({
             {selectedUsers.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {selectedUsers.map(userId => {
-                  const user = availableUsers.find(u => u.id === userId);
+                  const user = availableUsers?.find(u => u.id === userId);
                   if (!user) return null;
                   
                   return (

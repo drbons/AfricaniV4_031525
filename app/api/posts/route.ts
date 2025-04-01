@@ -133,7 +133,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { content, images, city, state, category, isBusinessPromotion, businessId } = body;
+    const { content, images, imageUrl, city, state, category, isBusinessPromotion, businessId } = body;
+    
+    // Process image URLs - combine single imageUrl with images array if provided
+    const imageUrls = [];
+    if (imageUrl) {
+      imageUrls.push(imageUrl);
+    }
+    if (Array.isArray(images) && images.length > 0) {
+      imageUrls.push(...images);
+    }
     
     // Get authorization token
     const authHeader = request.headers.get('authorization');
@@ -148,7 +157,7 @@ export async function POST(request: NextRequest) {
         userName: MOCK_USER.displayName,
         userAvatar: MOCK_USER.photoURL,
         content,
-        images: images || [],
+        images: imageUrls,
         city,
         state,
         category: category || null,
@@ -188,7 +197,7 @@ export async function POST(request: NextRequest) {
       userName: userData?.fullName || 'Anonymous',
       userAvatar: userData?.avatarUrl || null,
       content,
-      images: images || [],
+      images: imageUrls,
       city,
       state,
       category: category || null,

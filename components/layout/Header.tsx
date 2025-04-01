@@ -188,15 +188,12 @@ export default function Header() {
           </div>
         </div>
         
-        <div className="hidden md:flex items-center space-x-4">
-          <nav className="flex space-x-4 text-sm">
-            <Link href="/for-you" className="hover:text-green-400 transition-colors">For You</Link>
-            <Link href="/marketplace" className="hover:text-green-400 transition-colors">Marketplace</Link>
-            <Link href="/nearby" className="hover:text-green-400 transition-colors">Nearby</Link>
-            <Link href="/trending" className="hover:text-green-400 transition-colors">Trending</Link>
-          </nav>
-          <AuthButton />
+        <div className="hidden md:flex items-center space-x-6">
+          <Link href="/marketplace" className="hover:text-green-400 transition-colors">Marketplace</Link>
+          <Link href="/about-us" className="hover:text-green-400 transition-colors">About Us</Link>
+          <Link href="/contact-us" className="hover:text-green-400 transition-colors">Contact Us</Link>
         </div>
+        <AuthButton />
       </div>
     </header>
   );

@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Posts collection
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && 
+        (isOwner(resource.data.userId) || 
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['likeCount', 'commentCount', 'shareCount']));
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // Comments collection
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+  }
+} 

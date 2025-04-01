@@ -105,15 +105,9 @@ export default function ListingPage({ params }: ListingPageProps) {
           </Link>
         </div>
       ) : !listing ? (
-        <div className="text-center py-12">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
           <h2 className="text-xl font-semibold mb-2">Listing Not Found</h2>
-          <p className="text-gray-600 mb-4">The listing you&apos;re looking for might have been removed or is no longer available.</p>
-          <Link 
-            href="/marketplace" 
-            className="text-blue-600 hover:underline"
-          >
-            Return to Marketplace
-          </Link>
+          <p className="mb-4">The listing you&apos;re looking for doesn&apos;t exist or has been removed.</p>
         </div>
       ) : (
         <ListingDetail listing={listing} />

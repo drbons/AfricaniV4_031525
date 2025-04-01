@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { STATES } from '@/lib/data';
-import { Mail, Lock, User, MapPin, Building2, Phone, Clock } from 'lucide-react';
+import { Mail, Lock, User, MapPin, Building2, Phone, Clock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface FormData {
   email: string;
   password: string;
+  confirmPassword: string;
   fullName: string;
   state: string;
   city: string;
@@ -19,11 +20,32 @@ interface FormData {
   businessHours: string;
 }
 
+interface ValidationErrors {
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+}
+
+// Error message mapping for Firebase auth errors
+const errorMessages: Record<string, string> = {
+  'auth/email-already-in-use': 'This email is already registered. Please sign in or use a different email.',
+  'auth/invalid-email': 'Please enter a valid email address.',
+  'auth/weak-password': 'Password is too weak. Please use at least 8 characters.',
+  'auth/user-not-found': 'No account found with this email. Please sign up instead.',
+  'auth/wrong-password': 'Incorrect password. Please try again or reset your password.',
+  'auth/too-many-requests': 'Too many unsuccessful login attempts. Please try again later.',
+  'auth/network-request-failed': 'Network error. Please check your connection and try again.',
+  'password-mismatch': 'Passwords do not match. Please try again.',
+  'password-too-short': 'Password must be at least 8 characters long.'
+};
+
 export default function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const router = useRouter();
   const { user, isAuthenticated, signIn, signUp, signInWithGoogle } = useAuth();
 
@@ -37,6 +59,7 @@ export default function AuthForm() {
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
+    confirmPassword: '',
     fullName: '',
     state: '',
     city: '',
@@ -59,11 +82,45 @@ export default function AuthForm() {
     ? STATES.find(s => s.abbreviation === formData.state)?.cities || []
     : [];
 
+  // Validate form fields
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    
+    // Password validation
+    if (formData.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters long';
+    }
+    
+    // Confirm password validation (only for signup)
+    if (isSignUp && formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isSignUp && currentStep < (formData.hasBusiness ? 3 : 2)) {
+      // Validate first step for signup
+      if (currentStep === 1 && !validateForm()) {
+        return;
+      }
+      
       setCurrentStep(prev => prev + 1);
+      return;
+    }
+
+    // Validate form before submission
+    if (!validateForm()) {
       return;
     }
 
@@ -88,16 +145,22 @@ export default function AuthForm() {
         });
         
         console.log('[AuthForm] Sign up successful', { userId: newUser.uid });
-        // Redirect is now handled by the useAuth hook
+        
+        // Set a cookie to redirect to profile page after login
+        document.cookie = "redirectAfterLogin=/profile; path=/; max-age=300";
       } else {
         // Sign in
         const signedInUser = await signIn(formData.email, formData.password);
         console.log('[AuthForm] Sign in successful', { userId: signedInUser.uid });
-        // Redirect is now handled by the useAuth hook
+        // Redirect is handled by the useAuth hook
       }
     } catch (err: any) {
       console.error('[AuthForm] Authentication error:', err);
-      setError(err.message || 'An error occurred');
+      
+      // Convert Firebase error codes to user-friendly messages
+      const errorCode = err.code || '';
+      const errorMessage = errorMessages[errorCode] || err.message || 'An error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -111,13 +174,21 @@ export default function AuthForm() {
       console.log('[AuthForm] Attempting Google sign in');
       const googleUser = await signInWithGoogle();
       console.log('[AuthForm] Google sign in successful', { userId: googleUser.uid });
-      // Redirect is now handled by the useAuth hook
+      // Redirect is handled by the useAuth hook
     } catch (err: any) {
       console.error('[AuthForm] Google sign in error:', err);
-      setError(err.message || 'An error occurred with Google sign in');
+      
+      // Convert Firebase error codes to user-friendly messages
+      const errorCode = err.code || '';
+      const errorMessage = errorMessages[errorCode] || err.message || 'An error occurred with Google sign in';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(prev => !prev);
   };
 
   return (
@@ -127,8 +198,9 @@ export default function AuthForm() {
       </h2>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex items-start">
+          <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
@@ -175,11 +247,19 @@ export default function AuthForm() {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, email: e.target.value }));
+                    if (validationErrors.email) {
+                      setValidationErrors(prev => ({ ...prev, email: undefined }));
+                    }
+                  }}
+                  className={`w-full pl-10 px-3 py-2 border ${validationErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500`}
                   required
                 />
               </div>
+              {validationErrors.email && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>
+              )}
             </div>
             
             <div className="mb-4">
@@ -192,14 +272,66 @@ export default function AuthForm() {
                 </div>
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={formData.password}
-                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, password: e.target.value }));
+                    if (validationErrors.password) {
+                      setValidationErrors(prev => ({ ...prev, password: undefined }));
+                    }
+                  }}
+                  className={`w-full pl-10 pr-10 py-2 border ${validationErrors.password ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500`}
                   required
+                  minLength={8}
                 />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={togglePasswordVisibility}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
               </div>
+              {validationErrors.password && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>
+              )}
+              {isSignUp && !validationErrors.password && (
+                <p className="text-gray-500 text-xs mt-1">Password must be at least 8 characters long.</p>
+              )}
             </div>
+            
+            {isSignUp && (
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="confirmPassword">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="confirmPassword"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, confirmPassword: e.target.value }));
+                      if (validationErrors.confirmPassword) {
+                        setValidationErrors(prev => ({ ...prev, confirmPassword: undefined }));
+                      }
+                    }}
+                    className={`w-full pl-10 pr-10 py-2 border ${validationErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500`}
+                    required
+                  />
+                </div>
+                {validationErrors.confirmPassword && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.confirmPassword}</p>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -373,7 +505,7 @@ export default function AuthForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-[#00FF4C] hover:bg-green-400 text-black font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
+          className="w-full bg-[#00FF4C] hover:bg-green-400 text-black font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 transition duration-200"
         >
           {loading ? 'Loading...' : isSignUp ? 
             (currentStep < (formData.hasBusiness ? 3 : 2) ? 'Next' : 'Sign Up') 
@@ -397,7 +529,7 @@ export default function AuthForm() {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              className="w-full flex items-center justify-center bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition duration-200"
             >
               <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
                 <path
@@ -416,9 +548,12 @@ export default function AuthForm() {
           onClick={() => {
             setIsSignUp(!isSignUp);
             setCurrentStep(1);
+            setError(null);
+            setValidationErrors({});
             setFormData({
               email: '',
               password: '',
+              confirmPassword: '',
               fullName: '',
               state: '',
               city: '',

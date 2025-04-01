@@ -4,18 +4,22 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, limit } from 'firebase/firestore';
+import CreatePostModal from '@/components/posts/CreatePostModal';
 import Post from '@/components/posts/Post';
-import { Building } from 'lucide-react';
+import Image from 'next/image';
+import { Pencil } from 'lucide-react';
+import CreatePost from '@/components/features/CreatePost';
 import PostFeed from '@/components/features/PostFeed';
+import InviteNeighbors from '@/components/features/InviteNeighbors';
 import PinnedBusinesses from '@/components/features/PinnedBusinesses';
 import NationwidePosts from '@/components/features/NationwidePosts';
 import ValueProposition from '@/components/features/ValueProposition';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import MyPostsSidebar from '@/components/features/MyPostsSidebar';
 import Link from 'next/link';
-import FloatingCreateButton from '@/components/features/FloatingCreateButton';
+import { Building } from 'lucide-react';
 
 export default function Home() {
+  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, userProfile, error } = useAuth();
@@ -104,7 +108,44 @@ export default function Home() {
         {/* Main content - Feed */}
         <div className="w-full lg:w-[60%]">
           {user && (
-            <>              
+            <>
+              {/* Modern Create Post Card */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+                <div className="flex items-center space-x-4">
+                  <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden">
+                    {userProfile?.photoURL ? (
+                      <Image
+                        src={userProfile.photoURL}
+                        alt="Profile"
+                        width={40}
+                        height={40}
+                        className="object-cover w-full h-full"
+                      />
+                    ) : null}
+                  </div>
+                  <button
+                    onClick={() => setIsCreatePostOpen(true)}
+                    className="flex-1 text-left px-4 py-2 bg-gray-50 rounded-full text-gray-500 hover:bg-gray-100"
+                  >
+                    What's on your mind?
+                  </button>
+                  <button
+                    onClick={() => setIsCreatePostOpen(true)}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-full"
+                  >
+                    <Pencil size={20} />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Original CreatePost Component */}
+              <CreatePost />
+              
+              <div className="mt-6">
+                <h2 className="text-xl font-bold mb-4">My Posts</h2>
+                <PostFeed type="personal" />
+              </div>
+              
               <div className="mt-8">
                 <h2 className="text-xl font-bold mb-4">Community Feed</h2>
                 {/* New Posts Component */}
@@ -136,7 +177,7 @@ export default function Home() {
         
         {/* Right sidebar */}
         <div className="w-full lg:w-[40%] space-y-6">
-          {user && <MyPostsSidebar />}
+          <InviteNeighbors />
           <PinnedBusinesses />
           <NationwidePosts />
           <div className="mb-8 p-6 bg-white rounded-xl shadow-sm">
@@ -162,8 +203,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Add floating action button */}
-      <FloatingCreateButton />
+      {/* Create Post Modal */}
+      <CreatePostModal
+        isOpen={isCreatePostOpen}
+        onClose={() => setIsCreatePostOpen(false)}
+      />
     </div>
   );
 }

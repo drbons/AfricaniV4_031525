@@ -205,6 +205,11 @@ export function useAuth() {
         await updateUserState(MOCK_USER as unknown as User);
         logAuthState('DEV MODE sign up successful');
         
+        // Set default redirect to profile page for new users
+        if (!Cookies.get('redirectAfterLogin')) {
+          Cookies.set('redirectAfterLogin', '/profile', { ...COOKIE_OPTIONS, expires: 1/48 }); // 30 minutes
+        }
+        
         // Handle redirect
         setTimeout(handleAuthRedirect, 500);
         
@@ -241,6 +246,11 @@ export function useAuth() {
       
       // Ensure cookies are set
       await updateUserState(userCredential.user);
+      
+      // Set default redirect to profile page for new users
+      if (!Cookies.get('redirectAfterLogin')) {
+        Cookies.set('redirectAfterLogin', '/profile', { ...COOKIE_OPTIONS, expires: 1/48 }); // 30 minutes
+      }
       
       // Handle redirect
       setTimeout(handleAuthRedirect, 500);

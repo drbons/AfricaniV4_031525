@@ -6,7 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { 
   Heart, 
   MessageCircle, 
-  Share2, 
+  Share2,
   Bookmark, 
   MoreHorizontal,
   Image as ImageIcon,
@@ -21,6 +21,10 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { Post, Comment } from '@/types/firebase';
 import { cn } from '@/lib/utils';
+import { useToast } from "@/components/ui/use-toast";
+import { addDoc, collection, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 
 interface PostDetailsProps {
   post: Post;
@@ -69,6 +73,10 @@ export default function PostDetails({
   const commentsPerPage = 10;
 
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const [comments, setComments] = useState<Comment[]>(post.comments || []);
+  const [commentText, setCommentText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLike = async () => {
     if (!user || loading) return;
@@ -99,28 +107,43 @@ export default function PostDetails({
   };
 
   const handleShare = async () => {
-    if (!user || loading) return;
-    
-    setLoading(true);
     try {
-      await onShare?.();
-      
-      // Show share options
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Check out this post',
-          text: post.content,
-          url: window.location.href
-        });
+      const shareData = {
+        title: 'Check out this post',
+        text: post.content,
+        url: `${window.location.origin}/post/${post.id}`
+      };
+
+      if (navigator.share && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
       } else {
-        // Fallback to copy link
-        await navigator.clipboard.writeText(window.location.href);
-        // Show toast notification
+        await navigator.clipboard.writeText(shareData.url);
+        toast({
+          title: "Success",
+          description: "Post link copied to clipboard!",
+        });
       }
+
+      // Call the onShare prop if provided
+      if (onShare) {
+        await onShare();
+      }
+
+      // Update share count in Firestore
+      const postRef = doc(db, 'posts', post.id);
+      await updateDoc(postRef, {
+        shareCount: increment(1)
+      });
+
     } catch (error) {
       console.error('Error sharing post:', error);
-    } finally {
-      setLoading(false);
+      if (error instanceof Error && error.name !== 'AbortError') {
+        toast({
+          title: "Error",
+          description: "Failed to share post. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -135,20 +158,59 @@ export default function PostDetails({
     }
   };
 
-  const handleSubmitComment = async (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newComment.trim() || loading) return;
+    if (!commentText.trim() || isSubmitting) return;
 
-    setLoading(true);
     try {
-      await onComment?.(newComment);
-      setNewComment('');
-      setSelectedImage(null);
-      setShowComments(true);
+      setIsSubmitting(true);
+
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to comment",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const commentData = {
+        text: commentText.trim(),
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        userAvatar: user.photoURL || '',
+        createdAt: serverTimestamp(),
+        postId: post.id
+      };
+
+      // Add comment to Firestore
+      const commentRef = await addDoc(collection(db, 'comments'), commentData);
+      
+      // Update post's comment count
+      const postRef = doc(db, 'posts', post.id);
+      await updateDoc(postRef, {
+        commentCount: increment(1)
+      });
+
+      // Call the onComment prop if provided
+      if (onComment) {
+        await onComment(commentText);
+      }
+
+      setCommentText('');
+      toast({
+        title: "Success",
+        description: "Comment added successfully",
+      });
     } catch (error) {
-      console.error('Error posting comment:', error);
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment. Please try again.",
+        variant: "destructive"
+      });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -279,7 +341,7 @@ export default function PostDetails({
         <div className="flex items-center space-x-4">
           <span>{post.likes} likes</span>
           <span>{post.comments?.length || 0} comments</span>
-          <span>{post.shares} shares</span>
+          <span>{post.shareCount || 0} shares</span>
         </div>
         {isBookmarked && (
           <span className="text-blue-500">Saved</span>
@@ -310,11 +372,10 @@ export default function PostDetails({
 
         <button
           onClick={handleShare}
-          className="flex items-center space-x-2 p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors"
-          disabled={loading}
+          className="flex items-center space-x-2 text-gray-500 hover:text-gray-700"
         >
-          <Share2 className="h-6 w-6" />
-          <span>Share</span>
+          <Share2 className="h-5 w-5" />
+          <span>{post.shareCount || 0} shares</span>
         </button>
 
         <button
@@ -334,7 +395,7 @@ export default function PostDetails({
       {showComments && (
         <div className="p-4">
           {/* Comment Input */}
-          <form onSubmit={handleSubmitComment} className="mb-4">
+          <form onSubmit={handleCommentSubmit} className="mb-4">
             <div className="flex items-start space-x-3">
               <div className="relative h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
                 {user?.photoURL ? (
@@ -355,8 +416,8 @@ export default function PostDetails({
               <div className="flex-1">
                 <textarea
                   ref={commentInputRef}
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Write a comment..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   rows={1}
@@ -376,36 +437,12 @@ export default function PostDetails({
                   </button>
                   <button
                     type="submit"
-                    disabled={!newComment.trim() || loading}
+                    disabled={!commentText.trim() || isSubmitting}
                     className="px-4 py-1.5 bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="h-4 w-4" />
                   </button>
                 </div>
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                />
-                {selectedImage && (
-                  <div className="mt-2 relative">
-                    <Image
-                      src={URL.createObjectURL(selectedImage)}
-                      alt="Selected image"
-                      width={200}
-                      height={200}
-                      className="rounded-lg"
-                    />
-                    <button
-                      onClick={() => setSelectedImage(null)}
-                      className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 rounded-full text-white hover:bg-opacity-70 transition-opacity"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </form>

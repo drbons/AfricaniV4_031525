@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation';
 import { STATES } from '@/lib/data';
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { User, Mail, MapPin, Phone, Calendar, Building, Shield, AlertTriangle } from 'lucide-react';
+import { User, Mail, MapPin, Phone, Calendar, Building, Shield, AlertTriangle, Facebook, Twitter, Instagram, Star, AlertCircle, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import BusinessProfileManager from "@/components/profile/BusinessProfileManager";
+import { states, cities } from '@/lib/location-data';
 
 interface Profile {
   id: string;
@@ -23,6 +24,8 @@ interface Profile {
   role?: 'customer' | 'business';
   businessName?: string;
   businessAddress?: string;
+  businessCategory?: string;
+  businessCategoryCustom?: string;
   businessHours?: string;
   businessSocialMedia?: {
     facebook?: string;
@@ -35,6 +38,25 @@ interface Profile {
   updatedAt: any;
 }
 
+// Business category options
+const BUSINESS_CATEGORIES = [
+  "Restaurants & Food Services",
+  "Retail",
+  "Health & Wellness",
+  "Home Services",
+  "Automotive",
+  "Professional Services",
+  "Beauty & Personal Care",
+  "Education & Childcare",
+  "Entertainment & Recreation",
+  "Pets & Veterinary",
+  "Travel & Hospitality",
+  "Construction & Trades",
+  "Events & Party Services", 
+  "Nonprofits & Community Services",
+  "Other"
+];
+
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -46,6 +68,8 @@ export default function ProfilePage() {
   const [role, setRole] = useState<'customer' | 'business'>('customer');
   const [businessName, setBusinessName] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
+  const [businessCategory, setBusinessCategory] = useState('');
+  const [businessCategoryCustom, setBusinessCategoryCustom] = useState('');
   const [businessHours, setBusinessHours] = useState('');
   const [facebookHandle, setFacebookHandle] = useState('');
   const [twitterHandle, setTwitterHandle] = useState('');
@@ -87,6 +111,8 @@ export default function ProfilePage() {
             if (profileData.role === 'business') {
               setBusinessName(profileData.businessName || '');
               setBusinessAddress(profileData.businessAddress || '');
+              setBusinessCategory(profileData.businessCategory || '');
+              setBusinessCategoryCustom(profileData.businessCategoryCustom || '');
               setBusinessHours(profileData.businessHours || '');
               setFacebookHandle(profileData.businessSocialMedia?.facebook || '');
               setTwitterHandle(profileData.businessSocialMedia?.twitter || '');
@@ -155,6 +181,8 @@ export default function ProfilePage() {
         Object.assign(profileData, {
           businessName,
           businessAddress,
+          businessCategory,
+          businessCategoryCustom: businessCategory === 'Other' ? businessCategoryCustom : '',
           businessHours,
           businessSocialMedia: {
             facebook: facebookHandle,
@@ -422,6 +450,48 @@ export default function ProfilePage() {
                     required={role === 'business'}
                   />
                 </div>
+                
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="businessCategory">
+                    Business Category
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="businessCategory"
+                      value={businessCategory}
+                      onChange={(e) => setBusinessCategory(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none"
+                      required={role === 'business'}
+                    >
+                      <option value="">Select a category</option>
+                      {BUSINESS_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {businessCategory === 'Other' && (
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="businessCategoryCustom">
+                      Specify Business Category
+                    </label>
+                    <input
+                      id="businessCategoryCustom"
+                      type="text"
+                      value={businessCategoryCustom}
+                      onChange={(e) => setBusinessCategoryCustom(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Enter your business category"
+                      required={businessCategory === 'Other'}
+                    />
+                  </div>
+                )}
                 
                 <div className="mb-4">
                   <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="businessHours">
