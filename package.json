@@ -10,7 +10,10 @@
     "fix-next-cli": "node fix-next-cli.js",
     "fix-headers-sent": "node fix-headers-sent.js",
     "postinstall": "npm run fix-next-cli && npm run fix-headers-sent",
-    "seed-marketplace": "node scripts/seed-marketplace.js"
+    "seed-marketplace": "node scripts/seed-marketplace.js",
+    "setup-aws": "bash scripts/setup-aws.sh",
+    "deploy": "ts-node scripts/deploy-aws.ts",
+    "migrate": "node scripts/migrate-from-firebase.js"
   },
   "dependencies": {
     "@babel/core": "^7.24.0",
@@ -85,14 +88,14 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@babel/plugin-transform-class-properties": "^7.25.9",
-    "@babel/plugin-transform-private-methods": "^7.25.9",
-    "@babel/plugin-transform-react-jsx": "^7.25.9",
-    "@babel/plugin-transform-runtime": "^7.26.9",
-    "@babel/preset-react": "^7.26.3",
-    "@babel/preset-typescript": "^7.26.0",
-    "@babel/runtime": "^7.26.9",
-    "@types/uuid": "^9.0.8",
-    "babel-plugin-transform-runtime": "^6.23.0"
+    "@aws-sdk/client-amplify": "^3.510.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.510.0",
+    "@aws-sdk/client-ec2": "^3.510.0",
+    "@aws-sdk/client-rds": "^3.510.0",
+    "@aws-sdk/client-s3": "^3.510.0",
+    "@aws-sdk/client-secrets-manager": "^3.510.0",
+    "dotenv": "^16.4.5",
+    "pg": "^8.11.3",
+    "ts-node": "^10.9.2"
   }
 }

@@ -26,6 +26,8 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env.aws
+.env.production
 
 # vercel
 .vercel
@@ -38,9 +40,6 @@ next-env.d.ts
 .aws/
 aws-config.json
 .env.aws
-.env.production
-
-# AWS deployment artifacts
 .amplify/
 amplify/
 build/
@@ -59,6 +58,9 @@ dist/
 *.tmp
 aws-logs/
 aws-temp/
+
+# Firebase service account
+serviceAccountKey.json
 
 # Local development overrides
 .env.local
